@@ -1,4 +1,13 @@
-import { differenceInDays, endOfDay, startOfDay, subDays } from 'date-fns';
+import {
+  differenceInDays,
+  endOfDay,
+  isAfter,
+  isBefore,
+  isEqual,
+  startOfDay,
+  subDays,
+  subMilliseconds,
+} from 'date-fns';
 import type { DateInterval as SettingsDateInterval } from '../../../settings';
 import type { DateOrString } from './date';
 import { formatInternational, isBeforeOrEqual, now, parseISO } from './date';
@@ -77,14 +86,15 @@ export const rangeOrIntervalToString = (range?: DateRange | DateInterval): strin
   return INTERVAL_TO_STRING_MAP[range];
 };
 
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const localDayReference = (): Date => {
+  const current = now();
+  const dayStart = startOfDay(current);
 
-const toDayStart = (date: Date): Date =>
-  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-const toDayEnd = (date: Date): Date => new Date(toDayStart(date).getTime() + DAY_IN_MS - 1);
+  return isEqual(current, dayStart) ? subMilliseconds(current, 1) : current;
+};
 
-const startOfDaysAgo = (daysAgo: number) => toDayStart(subDays(now(), daysAgo));
-const endOfDaysAgo = (daysAgo: number) => toDayEnd(subDays(now(), daysAgo));
+const startOfDaysAgo = (daysAgo: number) => startOfDay(subDays(localDayReference(), daysAgo));
+const endOfDaysAgo = (daysAgo: number) => endOfDay(subDays(localDayReference(), daysAgo));
 const endingToday = (startDate: Date): DateRange => ({ startDate, endDate: endOfDaysAgo(0) });
 
 export const intervalToDateRange = (interval?: DateInterval): DateRange => {
@@ -103,9 +113,11 @@ export const intervalToDateRange = (interval?: DateInterval): DateRange => {
 
 export const dateToMatchingInterval = (date: DateOrString): DateInterval => {
   const isoDate = parseISO(date);
+  const todayStart = startOfDaysAgo(0);
+  const yesterdayStart = startOfDaysAgo(1);
   const conditions: [() => boolean, DateInterval][] = [
-    [() => isBeforeOrEqual(startOfDaysAgo(0), isoDate), 'today'],
-    [() => isBeforeOrEqual(startOfDaysAgo(1), isoDate), 'yesterday'],
+    [() => isBeforeOrEqual(todayStart, isoDate), 'today'],
+    [() => isAfter(isoDate, yesterdayStart) && isBefore(isoDate, todayStart), 'yesterday'],
     [() => isBeforeOrEqual(startOfDaysAgo(7), isoDate), 'last7Days'],
     [() => isBeforeOrEqual(startOfDaysAgo(30), isoDate), 'last30Days'],
     [() => isBeforeOrEqual(startOfDaysAgo(90), isoDate), 'last90Days'],
