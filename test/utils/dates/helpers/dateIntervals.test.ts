@@ -1,4 +1,5 @@
-import { endOfDay, format, formatISO, startOfDay, subDays } from 'date-fns';
+import { cdp } from 'vitest/browser';
+import { endOfDay, format, formatISO, isWithinInterval, startOfDay, subDays } from 'date-fns';
 import { now, parseDate } from '../../../../src/utils/dates/helpers/date';
 import type { DateInterval } from '../../../../src/utils/dates/helpers/dateIntervals';
 import {
@@ -200,6 +201,178 @@ describe('date-types', () => {
       [{ endDate: new Date() }, undefined],
     ])('returns the difference in days for a dateRange', (dateRange, expectedDays) => {
       expect(dateRangeDaysDiff(dateRange)).toEqual(expectedDays);
+    });
+  });
+
+  describe('local timezone day boundaries', () => {
+    const emulateTimezone = async (timezoneId: string) => {
+      await cdp().send('Emulation.setTimezoneOverride', { timezoneId });
+    };
+
+    const clearTimezoneOverride = async () => {
+      await cdp().send('Emulation.setTimezoneOverride', { timezoneId: '' });
+    };
+
+    afterEach(async () => {
+      vi.useRealTimers();
+      await clearTimezoneOverride();
+    });
+
+    describe('REQ-1', () => {
+      beforeEach(async () => {
+        await emulateTimezone('America/Los_Angeles');
+        vi.setSystemTime(new Date('2024-06-14T17:00:00.000Z'));
+      });
+
+      it('REQ-1 intervalToDateRange(today) uses America/Los_Angeles local day boundaries', () => {
+        const { startDate, endDate } = intervalToDateRange('today');
+
+        expect(startDate?.toISOString()).toEqual('2024-06-14T07:00:00.000Z');
+        expect(endDate?.toISOString()).toEqual('2024-06-15T06:59:59.999Z');
+      });
+    });
+
+    describe('REQ-2', () => {
+      beforeEach(async () => {
+        await emulateTimezone('America/Los_Angeles');
+        vi.setSystemTime(new Date('2024-06-14T17:00:00.000Z'));
+      });
+
+      it('REQ-2 intervalToDateRange(yesterday) covers the previous local calendar day in America/Los_Angeles', () => {
+        const { startDate, endDate } = intervalToDateRange('yesterday');
+
+        expect(startDate?.toISOString()).toEqual('2024-06-13T07:00:00.000Z');
+        expect(endDate?.toISOString()).toEqual('2024-06-14T06:59:59.999Z');
+
+        const stillYesterdayEvening = new Date('2024-06-14T06:00:00.000Z');
+        const alreadyTodayMorning = new Date('2024-06-14T07:30:00.000Z');
+
+        expect(isWithinInterval(stillYesterdayEvening, { start: startDate!, end: endDate! })).toEqual(true);
+        expect(isWithinInterval(alreadyTodayMorning, { start: startDate!, end: endDate! })).toEqual(false);
+      });
+    });
+
+    describe('REQ-3', () => {
+      beforeEach(async () => {
+        await emulateTimezone('America/Los_Angeles');
+        vi.setSystemTime(new Date('2024-06-14T17:00:00.000Z'));
+      });
+
+      it('REQ-3 intervalToDateRange(last7Days) spans seven local days ago through today in America/Los_Angeles', () => {
+        const { startDate, endDate } = intervalToDateRange('last7Days');
+
+        expect(startDate?.toISOString()).toEqual('2024-06-07T07:00:00.000Z');
+        expect(endDate?.toISOString()).toEqual('2024-06-15T06:59:59.999Z');
+      });
+    });
+
+    describe('REQ-4', () => {
+      const aucklandEndOfJune14 = '2024-06-14T11:59:59.999Z';
+
+      beforeEach(async () => {
+        await emulateTimezone('Pacific/Auckland');
+        vi.setSystemTime(new Date('2024-06-14T12:00:00.000Z'));
+      });
+
+      it('REQ-4 intervalToDateRange(last7Days) uses Pacific/Auckland local day boundaries', () => {
+        const { startDate, endDate } = intervalToDateRange('last7Days');
+
+        expect(startDate?.toISOString()).toEqual('2024-06-06T12:00:00.000Z');
+        expect(endDate?.toISOString()).toEqual(aucklandEndOfJune14);
+      });
+
+      it.each([
+        ['last30Days' as const, '2024-05-14T12:00:00.000Z'],
+        ['last90Days' as const, '2024-03-15T11:00:00.000Z'],
+        ['last180Days' as const, '2023-12-16T11:00:00.000Z'],
+        ['last365Days' as const, '2023-06-14T12:00:00.000Z'],
+      ])('REQ-4 intervalToDateRange(%s) uses Pacific/Auckland local day boundaries', (interval, expectedStart) => {
+        const { startDate, endDate } = intervalToDateRange(interval);
+
+        expect(startDate?.toISOString()).toEqual(expectedStart);
+        expect(endDate?.toISOString()).toEqual(aucklandEndOfJune14);
+      });
+    });
+
+    describe('REQ-5', () => {
+      beforeEach(async () => {
+        await emulateTimezone('UTC');
+        vi.setSystemTime(new Date('2024-06-14T17:00:00.000Z'));
+      });
+
+      it.each([
+        ['today' as const, '2024-06-14T00:00:00.000Z', '2024-06-14T23:59:59.999Z'],
+        ['yesterday' as const, '2024-06-13T00:00:00.000Z', '2024-06-13T23:59:59.999Z'],
+        ['last7Days' as const, '2024-06-07T00:00:00.000Z', '2024-06-14T23:59:59.999Z'],
+        ['last30Days' as const, '2024-05-15T00:00:00.000Z', '2024-06-14T23:59:59.999Z'],
+        ['last90Days' as const, '2024-03-16T00:00:00.000Z', '2024-06-14T23:59:59.999Z'],
+        ['last180Days' as const, '2023-12-17T00:00:00.000Z', '2024-06-14T23:59:59.999Z'],
+        ['last365Days' as const, '2023-06-15T00:00:00.000Z', '2024-06-14T23:59:59.999Z'],
+      ])('REQ-5 intervalToDateRange(%s) keeps UTC calendar day boundaries', (interval, expectedStart, expectedEnd) => {
+        const { startDate, endDate } = intervalToDateRange(interval);
+
+        expect(startDate?.toISOString()).toEqual(expectedStart);
+        expect(endDate?.toISOString()).toEqual(expectedEnd);
+      });
+    });
+
+    describe('REQ-6', () => {
+      beforeEach(async () => {
+        await emulateTimezone('America/Los_Angeles');
+      });
+
+      it('REQ-6 intervalToDateRange(today) handles US daylight-saving spring-forward local day length', () => {
+        vi.setSystemTime(new Date('2024-03-10T20:00:00.000Z'));
+
+        const { startDate, endDate } = intervalToDateRange('today');
+
+        expect(startDate?.toISOString()).toEqual('2024-03-10T08:00:00.000Z');
+        expect(endDate?.toISOString()).toEqual('2024-03-11T06:59:59.999Z');
+      });
+
+      it('REQ-6 intervalToDateRange(today) handles US daylight-saving fall-back local day length', () => {
+        vi.setSystemTime(new Date('2024-11-03T20:00:00.000Z'));
+
+        const { startDate, endDate } = intervalToDateRange('today');
+
+        expect(startDate?.toISOString()).toEqual('2024-11-03T07:00:00.000Z');
+        expect(endDate?.toISOString()).toEqual('2024-11-04T07:59:59.999Z');
+      });
+    });
+
+    describe('REQ-7', () => {
+      beforeEach(async () => {
+        await emulateTimezone('America/Los_Angeles');
+        vi.setSystemTime(new Date('2024-06-14T17:00:00.000Z'));
+      });
+
+      it('REQ-7 dateToMatchingInterval classifies visits using America/Los_Angeles local day boundaries', () => {
+        expect(dateToMatchingInterval(new Date('2024-06-14T06:00:00.000Z'))).toEqual('yesterday');
+        expect(dateToMatchingInterval(new Date('2024-06-14T07:00:00.000Z'))).toEqual('today');
+        expect(dateToMatchingInterval(new Date('2024-06-13T07:00:00.000Z'))).toEqual('last7Days');
+      });
+    });
+
+    describe('REQ-8', () => {
+      beforeEach(async () => {
+        await emulateTimezone('America/Los_Angeles');
+        vi.setSystemTime(new Date('2024-06-14T17:00:00.000Z'));
+      });
+
+      it.each([
+        ['today' as const, '2024-06-14T07:00:00.000Z', '2024-06-15T06:59:59.999Z'],
+        ['yesterday' as const, '2024-06-13T07:00:00.000Z', '2024-06-14T06:59:59.999Z'],
+        ['last7Days' as const, '2024-06-07T07:00:00.000Z', '2024-06-15T06:59:59.999Z'],
+      ])(
+        'REQ-8 toDateRange(%s) delegates to intervalToDateRange with local timezone boundaries',
+        (interval, expectedStart, expectedEnd) => {
+          expect(toDateRange(interval)).toEqual(intervalToDateRange(interval));
+
+          const { startDate, endDate } = toDateRange(interval);
+          expect(startDate?.toISOString()).toEqual(expectedStart);
+          expect(endDate?.toISOString()).toEqual(expectedEnd);
+        },
+      );
     });
   });
 });
