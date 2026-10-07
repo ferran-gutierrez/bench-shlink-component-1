@@ -1,5 +1,5 @@
-import { cdp } from 'vitest/browser';
 import { endOfDay, format, formatISO, isWithinInterval, startOfDay, subDays } from 'date-fns';
+import { cdp } from 'vitest/browser';
 import { now, parseDate } from '../../../../src/utils/dates/helpers/date';
 import type { DateInterval } from '../../../../src/utils/dates/helpers/dateIntervals';
 import {
@@ -205,12 +205,16 @@ describe('date-types', () => {
   });
 
   describe('local timezone day boundaries', () => {
+    type CdpSessionWithSend = { send: (method: string, params?: Record<string, string>) => Promise<unknown> };
+
+    const cdpSession = (): CdpSessionWithSend => cdp() as CdpSessionWithSend;
+
     const emulateTimezone = async (timezoneId: string) => {
-      await cdp().send('Emulation.setTimezoneOverride', { timezoneId });
+      await cdpSession().send('Emulation.setTimezoneOverride', { timezoneId });
     };
 
     const clearTimezoneOverride = async () => {
-      await cdp().send('Emulation.setTimezoneOverride', { timezoneId: '' });
+      await cdpSession().send('Emulation.setTimezoneOverride', { timezoneId: '' });
     };
 
     afterEach(async () => {
