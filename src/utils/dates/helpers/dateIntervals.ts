@@ -77,6 +77,20 @@ export const rangeOrIntervalToString = (range?: DateRange | DateInterval): strin
   return INTERVAL_TO_STRING_MAP[range];
 };
 
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+const isUtcEnvironment = (): boolean => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone === 'UTC';
+  } catch {
+    return now().getTimezoneOffset() === 0;
+  }
+};
+
+const toUtcDayStart = (date: Date): Date =>
+  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+const toUtcDayEnd = (date: Date): Date => new Date(toUtcDayStart(date).getTime() + DAY_IN_MS - 1);
+
 const localDayReference = (): Date => {
   const current = now();
   const dayStart = startOfDay(current);
@@ -84,8 +98,11 @@ const localDayReference = (): Date => {
   return isEqual(current, dayStart) ? subMilliseconds(current, 1) : current;
 };
 
-const startOfDaysAgo = (daysAgo: number) => startOfDay(subDays(localDayReference(), daysAgo));
-const endOfDaysAgo = (daysAgo: number) => endOfDay(subDays(localDayReference(), daysAgo));
+const startOfDaysAgo = (daysAgo: number) =>
+  isUtcEnvironment() ? toUtcDayStart(subDays(now(), daysAgo)) : startOfDay(subDays(localDayReference(), daysAgo));
+
+const endOfDaysAgo = (daysAgo: number) =>
+  isUtcEnvironment() ? toUtcDayEnd(subDays(now(), daysAgo)) : endOfDay(subDays(localDayReference(), daysAgo));
 const endingToday = (startDate: Date): DateRange => ({ startDate, endDate: endOfDaysAgo(0) });
 
 export const intervalToDateRange = (interval?: DateInterval): DateRange => {

@@ -318,6 +318,26 @@ describe('date-types', () => {
         expect(startDate?.toISOString()).toEqual(expectedStart);
         expect(endDate?.toISOString()).toEqual(expectedEnd);
       });
+
+      it.each([
+        ['today' as const, '2024-06-14T00:00:00.000Z', '2024-06-14T23:59:59.999Z'],
+        ['yesterday' as const, '2024-06-13T00:00:00.000Z', '2024-06-13T23:59:59.999Z'],
+        ['last7Days' as const, '2024-06-07T00:00:00.000Z', '2024-06-14T23:59:59.999Z'],
+        ['last30Days' as const, '2024-05-15T00:00:00.000Z', '2024-06-14T23:59:59.999Z'],
+        ['last90Days' as const, '2024-03-16T00:00:00.000Z', '2024-06-14T23:59:59.999Z'],
+        ['last180Days' as const, '2023-12-17T00:00:00.000Z', '2024-06-14T23:59:59.999Z'],
+        ['last365Days' as const, '2023-06-15T00:00:00.000Z', '2024-06-14T23:59:59.999Z'],
+      ])(
+        'REQ-5 intervalToDateRange(%s) keeps UTC calendar day boundaries at UTC local midnight',
+        (interval, expectedStart, expectedEnd) => {
+          vi.setSystemTime(new Date('2024-06-14T00:00:00.000Z'));
+
+          const { startDate, endDate } = intervalToDateRange(interval);
+
+          expect(startDate?.toISOString()).toEqual(expectedStart);
+          expect(endDate?.toISOString()).toEqual(expectedEnd);
+        },
+      );
     });
 
     describe('REQ-6', () => {
