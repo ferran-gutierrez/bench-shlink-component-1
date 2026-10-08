@@ -3,10 +3,10 @@ import type {
   ShlinkRedirectConditionType,
   ShlinkRedirectRuleData,
 } from '@shlinkio/shlink-js-sdk/api-contract';
-import type { ComponentProps } from 'react';
 import { screen, waitFor } from '@testing-library/react';
 import type { UserEvent } from '@testing-library/user-event';
 import { fromPartial } from '@total-typescript/shoehorn';
+import type { ComponentProps } from 'react';
 import { RedirectRuleModal } from '../../../src/redirect-rules/helpers/RedirectRuleModal';
 import { countryCodes } from '../../../src/utils/country-codes';
 import { FeaturesProvider } from '../../../src/utils/features';
@@ -33,7 +33,7 @@ describe('<RedirectRuleModal />', () => {
     advancedQueryRedirectConditions = true,
     desktopDeviceTypes = true,
     dateRedirectConditions = true,
-    browserRedirectConditions = true,
+    browserRedirectConditions = false,
   }: SetUpOptions) => renderWithEvents(
     <TestModalWrapper
       renderModal={(args) => (
