@@ -86,4 +86,20 @@ describe('<RedirectRuleCard />', () => {
     await user.click(screen.getByLabelText('Edit rule with priority 3'));
     await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
   });
+
+  it('REQ-7 renders browser condition as Browser is chrome', () => {
+    setUp({
+      redirectRule: fromPartial({
+        conditions: [{ type: 'browser', matchValue: 'chrome', matchKey: null }],
+      }),
+    });
+
+    expect(screen.getByText('Browser is chrome')).toBeInTheDocument();
+  });
+
+  it('REQ-9 passes a11y checks with a browser opera condition', () => checkAccessibility(setUp({
+    redirectRule: fromPartial({
+      conditions: [{ type: 'browser', matchValue: 'opera', matchKey: null }],
+    }),
+  })));
 });

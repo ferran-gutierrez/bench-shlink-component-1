@@ -3,6 +3,7 @@ import type {
   ShlinkRedirectConditionType,
   ShlinkRedirectRuleData,
 } from '@shlinkio/shlink-js-sdk/api-contract';
+import type { ComponentProps } from 'react';
 import { screen, waitFor } from '@testing-library/react';
 import type { UserEvent } from '@testing-library/user-event';
 import { fromPartial } from '@total-typescript/shoehorn';
@@ -20,6 +21,7 @@ type SetUpOptions = {
   advancedQueryRedirectConditions?: boolean;
   desktopDeviceTypes?: boolean;
   dateRedirectConditions?: boolean;
+  browserRedirectConditions?: boolean;
 };
 
 describe('<RedirectRuleModal />', () => {
@@ -31,17 +33,21 @@ describe('<RedirectRuleModal />', () => {
     advancedQueryRedirectConditions = true,
     desktopDeviceTypes = true,
     dateRedirectConditions = true,
+    browserRedirectConditions = true,
   }: SetUpOptions) => renderWithEvents(
     <TestModalWrapper
       renderModal={(args) => (
         <FeaturesProvider
-          value={fromPartial({
-            ipRedirectCondition,
-            geolocationRedirectCondition,
-            advancedQueryRedirectConditions,
-            desktopDeviceTypes,
-            dateRedirectConditions,
-          })}
+          value={{
+            ...fromPartial({
+              ipRedirectCondition,
+              geolocationRedirectCondition,
+              advancedQueryRedirectConditions,
+              desktopDeviceTypes,
+              dateRedirectConditions,
+            }),
+            browserRedirectConditions,
+          } as ComponentProps<typeof FeaturesProvider>['value']}
         >
           <RedirectRuleModal {...args} onSave={onSave} initialData={initialData} />
         </FeaturesProvider>
@@ -294,4 +300,100 @@ describe('<RedirectRuleModal />', () => {
       expect(option).toHaveTextContent(expectedOptions[index]);
     });
   });
+
+  it('REQ-2 lists exactly Device type, Language, and Query param when browser redirect conditions are disabled', async () => {
+    const { user } = setUp({
+      ipRedirectCondition: false,
+      geolocationRedirectCondition: false,
+      advancedQueryRedirectConditions: false,
+      dateRedirectConditions: false,
+      browserRedirectConditions: false,
+    });
+
+    await addConditionWithType(user, 'language');
+    const options = screen.getAllByRole('option');
+
+    expect(options).toHaveLength(3);
+    expect(options.map((option) => option.textContent)).toEqual(['Device type', 'Language', 'Query param']);
+  });
+
+  it('REQ-3 lists Browser as the last condition type when all redirect condition features are enabled', async () => {
+    const { user } = setUp({
+      ipRedirectCondition: true,
+      geolocationRedirectCondition: true,
+      advancedQueryRedirectConditions: true,
+      dateRedirectConditions: true,
+      browserRedirectConditions: true,
+    });
+
+    await addConditionWithType(user, 'language');
+    const [typeSelect] = screen.getAllByLabelText('Type:');
+    const options = typeSelect.querySelectorAll('option');
+
+    expect(options[options.length - 2]).toHaveTextContent('After date');
+    expect(options[options.length - 1]).toHaveTextContent('Browser');
+  });
+
+  it('REQ-4 shows browser options in order when condition type is browser', async () => {
+    const { user } = setUp({ browserRedirectConditions: true });
+
+    await addConditionWithType(user, 'browser');
+    const options = screen.getByLabelText('Browser:').querySelectorAll('option');
+    const expectedOptions = [
+      ['Google Chrome', 'chrome'],
+      ['Mozilla Firefox', 'firefox'],
+      ['Microsoft Edge', 'edge'],
+      ['Safari', 'safari'],
+      ['Opera', 'opera'],
+      ['Android browser', 'android_browser'],
+    ] as const;
+
+    expect(options).toHaveLength(expectedOptions.length);
+    expectedOptions.forEach(([label, value], index) => {
+      expect(options[index]).toHaveTextContent(label);
+      expect(options[index]).toHaveValue(value);
+    });
+  });
+
+  it('REQ-5 saves a browser condition with Mozilla Firefox selected', async () => {
+    const initialData: ShlinkRedirectRuleData = {
+      longUrl: 'https://example.com',
+      conditions: [{ type: 'device', matchValue: 'android', matchKey: null }],
+    };
+    const { user } = setUp({ initialData, browserRedirectConditions: true });
+
+    await waitFor(() => expect(screen.getByLabelText('Long URL:')).toBeInTheDocument());
+    await addConditionWithType(user, 'browser');
+    await user.selectOptions(screen.getByLabelText('Browser:'), ['firefox']);
+    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    expect(onSave).toHaveBeenCalledWith({
+      longUrl: 'https://example.com',
+      conditions: [
+        { type: 'device', matchValue: 'android', matchKey: null },
+        { type: 'browser', matchValue: 'firefox', matchKey: null },
+      ],
+    });
+  });
+
+  it('REQ-6 shows Browser type and Safari selected for an existing browser condition', () => {
+    setUp({
+      browserRedirectConditions: true,
+      initialData: {
+        longUrl: 'https://example.com',
+        conditions: [{ type: 'browser', matchValue: 'safari', matchKey: null }],
+      },
+    });
+
+    expect(screen.getByLabelText('Type:')).toHaveValue('browser');
+    expect(screen.getByLabelText('Browser:')).toHaveValue('safari');
+  });
+
+  it('REQ-8 passes a11y checks with an initial browser edge condition', () => checkAccessibility(setUp({
+    browserRedirectConditions: true,
+    initialData: {
+      longUrl: 'https://example.com',
+      conditions: [{ type: 'browser', matchValue: 'edge', matchKey: null }],
+    },
+  })));
 });
