@@ -137,6 +137,29 @@ const CityNameControls: FC<{ cityName: string | null; onCityNameChange: (cityNam
   <PlainValueControls value={cityName} onValueChange={onCityNameChange} label="City name" placeholder="New York" />
 );
 
+const browserNames = {
+  chrome: 'Google Chrome',
+  firefox: 'Mozilla Firefox',
+  edge: 'Microsoft Edge',
+  safari: 'Safari',
+  opera: 'Opera',
+  android_browser: 'Android browser',
+} as const;
+
+const BrowserControls: FC<{ browser: string | null; onBrowserChange: (browser: string) => void; }> = ({
+  browser,
+  onBrowserChange,
+}) => (
+  <LabelledSelect
+    label="Browser:"
+    value={browser ?? undefined}
+    onChange={(e) => onBrowserChange((e.target as HTMLSelectElement).value)}
+    hiddenRequired
+  >
+    {Object.entries(browserNames).map(([key, name]) => <option key={key} value={key}>{name}</option>)}
+  </LabelledSelect>
+);
+
 const Condition: FC<{
   condition: ShlinkRedirectCondition;
   onConditionChange: (condition: ShlinkRedirectCondition) => void;
@@ -159,6 +182,7 @@ const Condition: FC<{
   const supportsGeolocationRedirectCondition = useFeature('geolocationRedirectCondition');
   const supportsAdvancedQueryConditions = useFeature('advancedQueryRedirectConditions');
   const supportsDateConditions = useFeature('dateRedirectConditions');
+  const supportsBrowserRedirectConditions = useFeature('browserRedirectConditions');
   const conditionNames = useMemo((): Partial<Record<ShlinkRedirectConditionType, string>> => {
     const conditionNames: Partial<Record<ShlinkRedirectConditionType, string>> = {
       device: 'Device type',
@@ -185,9 +209,14 @@ const Condition: FC<{
       conditionNames['after-date'] = 'After date';
     }
 
+    if (supportsBrowserRedirectConditions) {
+      conditionNames.browser = 'Browser';
+    }
+
     return conditionNames;
   }, [
     supportsAdvancedQueryConditions,
+    supportsBrowserRedirectConditions,
     supportsDateConditions,
     supportsGeolocationRedirectCondition,
     supportsIpRedirectCondition,
@@ -269,6 +298,9 @@ const Condition: FC<{
             onChange={(newDate) => newDate && setConditionValue(formatISO(newDate))}
           />
         </div>
+      )}
+      {condition.type === 'browser' && (
+        <BrowserControls browser={condition.matchValue} onBrowserChange={setConditionValue} />
       )}
     </div>
   );
