@@ -3,12 +3,12 @@ import type {
   ShlinkRedirectConditionType,
   ShlinkRedirectRuleData,
 } from '@shlinkio/shlink-js-sdk/api-contract';
-import { screen, waitFor } from '@testing-library/react';
+import { renderHook, screen, waitFor } from '@testing-library/react';
 import type { UserEvent } from '@testing-library/user-event';
 import { fromPartial } from '@total-typescript/shoehorn';
 import { RedirectRuleModal } from '../../../src/redirect-rules/helpers/RedirectRuleModal';
 import { countryCodes } from '../../../src/utils/country-codes';
-import { FeaturesProvider } from '../../../src/utils/features';
+import { FeaturesProvider, useFeatures } from '../../../src/utils/features';
 import { checkAccessibility } from '../../__helpers__/accessibility';
 import { renderWithEvents } from '../../__helpers__/setUpTest';
 import { TestModalWrapper } from '../../__helpers__/TestModalWrapper';
@@ -317,6 +317,14 @@ describe('<RedirectRuleModal />', () => {
     options.forEach((option, index) => {
       expect(option).toHaveTextContent(expectedOptions[index]);
     });
+  });
+
+  it('REQ-1 registers browserRedirectConditions with minimum Shlink version 5.1.0', () => {
+    const { result: before510 } = renderHook(() => useFeatures('5.0.0'));
+    expect(before510.current.browserRedirectConditions).toBe(false);
+
+    const { result: from510 } = renderHook(() => useFeatures('5.1.0'));
+    expect(from510.current.browserRedirectConditions).toBe(true);
   });
 
   it('REQ-1 does not list Browser in the type select when browserRedirectConditions is disabled', async () => {
