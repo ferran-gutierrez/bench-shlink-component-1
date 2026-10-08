@@ -1,4 +1,5 @@
 import { endOfDay, format, formatISO, startOfDay, subDays } from 'date-fns';
+import { cdp } from 'vitest/browser';
 import { now, parseDate } from '../../../../src/utils/dates/helpers/date';
 import type { DateInterval } from '../../../../src/utils/dates/helpers/dateIntervals';
 import {
@@ -200,6 +201,176 @@ describe('date-types', () => {
       [{ endDate: new Date() }, undefined],
     ])('returns the difference in days for a dateRange', (dateRange, expectedDays) => {
       expect(dateRangeDaysDiff(dateRange)).toEqual(expectedDays);
+    });
+  });
+});
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+const utcMidnightDayRangeAnchoredToNow = (): { startDate: Date; endDate: Date } => {
+  const anchor = now();
+  const startDate = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), anchor.getUTCDate()));
+
+  return { startDate, endDate: new Date(startDate.getTime() + DAY_IN_MS - 1) };
+};
+
+const expectIsoRange = (
+  range: { startDate?: Date | null; endDate?: Date | null },
+  expectedStart: string,
+  expectedEnd: string,
+) => {
+  expect(range.startDate?.toISOString()).toEqual(expectedStart);
+  expect(range.endDate?.toISOString()).toEqual(expectedEnd);
+};
+
+const pinBrowserTimezone = async (timezoneId: string) => {
+  const session = cdp() as { send: (method: string, params: { timezoneId: string }) => Promise<unknown> };
+  await session.send('Emulation.setTimezoneOverride', { timezoneId });
+};
+
+describe('bench-shlink-component-1-20261008-cxer: local timezone date intervals', () => {
+  const FROZEN_INSTANT_JUNE_LA = '2024-06-14T17:00:00.000Z';
+  const TODAY_END_JUNE_LA = '2024-06-15T06:59:59.999Z';
+
+  beforeEach(async () => {
+    await pinBrowserTimezone('America/Los_Angeles');
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(FROZEN_INSTANT_JUNE_LA));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  describe('REQ-1', () => {
+    it('intervalToDateRange(today) uses the local calendar day in America/Los_Angeles', () => {
+      expectIsoRange(intervalToDateRange('today'), '2024-06-14T07:00:00.000Z', TODAY_END_JUNE_LA);
+    });
+  });
+
+  describe('REQ-2', () => {
+    it('intervalToDateRange(yesterday) covers the previous local calendar day in America/Los_Angeles', () => {
+      expectIsoRange(intervalToDateRange('yesterday'), '2024-06-13T07:00:00.000Z', '2024-06-14T06:59:59.999Z');
+    });
+  });
+
+  describe('REQ-3', () => {
+    it('intervalToDateRange(last7Days) spans seven local days through end of today', () => {
+      expectIsoRange(intervalToDateRange('last7Days'), '2024-06-07T07:00:00.000Z', TODAY_END_JUNE_LA);
+    });
+  });
+
+  describe('REQ-4', () => {
+    it.each([
+      ['last30Days' as const, '2024-05-15T07:00:00.000Z'],
+      ['last90Days' as const, '2024-03-16T07:00:00.000Z'],
+      ['last180Days' as const, '2023-12-17T08:00:00.000Z'],
+      ['last365Days' as const, '2023-06-15T07:00:00.000Z'],
+    ])(
+      'intervalToDateRange(%s) starts at local midnight N days ago and ends at local end of today',
+      (interval, expectedStart) => {
+        expectIsoRange(intervalToDateRange(interval), expectedStart, TODAY_END_JUNE_LA);
+      },
+    );
+  });
+
+  describe('REQ-5', () => {
+    it('dateToMatchingInterval maps a late-evening local time on the current day to today', () => {
+      expect(dateToMatchingInterval('2024-06-15T02:00:00.000Z')).toEqual('today');
+    });
+  });
+
+  describe('REQ-6', () => {
+    it('dateToMatchingInterval maps a late-evening local time on the previous day to yesterday', () => {
+      expect(dateToMatchingInterval('2024-06-14T06:00:00.000Z')).toEqual('yesterday');
+    });
+  });
+
+  describe('REQ-7', () => {
+    beforeEach(() => {
+      vi.setSystemTime(new Date('2024-03-10T18:30:00.000Z'));
+    });
+
+    it('intervalToDateRange(today) covers the spring-forward local calendar day', () => {
+      expectIsoRange(intervalToDateRange('today'), '2024-03-10T08:00:00.000Z', '2024-03-11T06:59:59.999Z');
+    });
+  });
+
+  describe('REQ-8', () => {
+    beforeEach(() => {
+      vi.setSystemTime(new Date('2024-11-03T09:30:00.000Z'));
+    });
+
+    it('intervalToDateRange(today) covers the fall-back local calendar day', () => {
+      expectIsoRange(intervalToDateRange('today'), '2024-11-03T07:00:00.000Z', '2024-11-04T07:59:59.999Z');
+    });
+  });
+});
+
+describe('bench-shlink-component-1-20261008-cxer: UTC offset zero regression', () => {
+  const FROZEN_INSTANT = '2024-06-14T17:00:00.000Z';
+
+  beforeEach(async () => {
+    await pinBrowserTimezone('UTC');
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(FROZEN_INSTANT));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  describe('REQ-9', () => {
+    it('preset intervals keep legacy UTC-midnight numeric boundaries when local offset is zero', () => {
+      const legacyToday = utcMidnightDayRangeAnchoredToNow();
+
+      expectIsoRange(
+        intervalToDateRange('today'),
+        legacyToday.startDate.toISOString(),
+        legacyToday.endDate.toISOString(),
+      );
+
+      const legacyYesterdayStart = new Date(legacyToday.startDate.getTime() - DAY_IN_MS);
+      const legacyYesterdayEnd = new Date(legacyToday.startDate.getTime() - 1);
+      expectIsoRange(
+        intervalToDateRange('yesterday'),
+        legacyYesterdayStart.toISOString(),
+        legacyYesterdayEnd.toISOString(),
+      );
+
+      expectIsoRange(
+        intervalToDateRange('last7Days'),
+        new Date(legacyToday.startDate.getTime() - 7 * DAY_IN_MS).toISOString(),
+        legacyToday.endDate.toISOString(),
+      );
+    });
+  });
+});
+
+describe('bench-shlink-component-1-20261008-cxer: visit timestamp vs UTC-midnight regression', () => {
+  const FROZEN_INSTANT = '2024-06-14T12:00:00.000Z';
+  const VISIT_TIMESTAMP = '2024-06-15T02:00:00.000Z';
+
+  beforeEach(async () => {
+    await pinBrowserTimezone('America/Los_Angeles');
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(FROZEN_INSTANT));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  describe('REQ-10', () => {
+    it('a visit on the local calendar day is inside today but outside UTC-midnight bounds', () => {
+      const visit = new Date(VISIT_TIMESTAMP);
+      const localToday = intervalToDateRange('today');
+      const utcMidnightToday = utcMidnightDayRangeAnchoredToNow();
+
+      expect(visit.getTime()).toBeGreaterThanOrEqual(localToday.startDate!.getTime());
+      expect(visit.getTime()).toBeLessThanOrEqual(localToday.endDate!.getTime());
+
+      expect(visit.getTime()).toBeGreaterThan(utcMidnightToday.endDate.getTime());
     });
   });
 });
