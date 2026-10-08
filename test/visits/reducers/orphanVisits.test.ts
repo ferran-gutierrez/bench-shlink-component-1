@@ -3,8 +3,9 @@ import { addDays, formatISO, subDays } from 'date-fns';
 import type { ShlinkApiClient, ShlinkVisit, ShlinkVisitsList } from '../../../src/api-contract';
 import type { RootState } from '../../../src/store';
 import type { WithApiClient } from '../../../src/store/helpers';
-import { formatIsoDate } from '../../../src/utils/dates/helpers/date';
+import { formatIsoDate, parseISO } from '../../../src/utils/dates/helpers/date';
 import type { DateInterval } from '../../../src/utils/dates/helpers/dateIntervals';
+import { dateRangeDaysDiff } from '../../../src/utils/dates/helpers/dateIntervals';
 import { rangeOf } from '../../../src/utils/helpers';
 import type { LoadOrphanVisits } from '../../../src/visits/reducers/orphanVisits';
 import {
@@ -20,6 +21,10 @@ import { problemDetailsError } from '../../__mocks__/ProblemDetailsError.mock';
 describe('orphanVisitsReducer', () => {
   const now = new Date();
   const dateForVisit = (day: number) => `2020-01-1${day}T00:00:00Z`;
+  const prevVisitDateForRange = (visitDate: string, dateRange?: { startDate?: Date | null; endDate?: Date | null }) => {
+    const days = dateRangeDaysDiff(dateRange);
+    return days === undefined ? visitDate : formatIsoDate(addDays(parseISO(visitDate), days))!;
+  };
   const visitsMocks = rangeOf(2, (index) => fromPartial<ShlinkVisit>({ date: dateForVisit(index), type: 'base_url' }));
   const getOrphanVisitsCall = vi.fn();
   const apiClientFactory = () => fromPartial<ShlinkApiClient>({ getOrphanVisits: getOrphanVisitsCall });
@@ -266,7 +271,7 @@ describe('orphanVisitsReducer', () => {
           orphanVisitsType ? { ...visit, type: orphanVisitsType } : visit,
         );
         const prevVisits = expectsPrevVisits
-          ? expectedVisits.map((visit, index) => ({ ...visit, date: dateForVisit(index + 1 + expectedVisits.length) }))
+          ? expectedVisits.map((visit) => ({ ...visit, date: prevVisitDateForRange(visit.date, dateRange) }))
           : undefined;
 
         getOrphanVisitsCall.mockResolvedValue({

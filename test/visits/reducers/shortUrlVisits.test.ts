@@ -3,8 +3,9 @@ import { addDays, formatISO, subDays } from 'date-fns';
 import type { ShlinkApiClient, ShlinkVisit, ShlinkVisitsList } from '../../../src/api-contract';
 import type { RootState } from '../../../src/store';
 import type { WithApiClient } from '../../../src/store/helpers';
-import { formatIsoDate } from '../../../src/utils/dates/helpers/date';
+import { formatIsoDate, parseISO } from '../../../src/utils/dates/helpers/date';
 import type { DateInterval } from '../../../src/utils/dates/helpers/dateIntervals';
+import { dateRangeDaysDiff } from '../../../src/utils/dates/helpers/dateIntervals';
 import { rangeOf } from '../../../src/utils/helpers';
 import type { LoadShortUrlVisits, ShortUrlVisits } from '../../../src/visits/reducers/shortUrlVisits';
 import {
@@ -19,6 +20,10 @@ import { problemDetailsError } from '../../__mocks__/ProblemDetailsError.mock';
 describe('shortUrlVisitsReducer', () => {
   const now = new Date();
   const dateForVisit = (day: number) => `2020-01-1${day}T00:00:00Z`;
+  const prevVisitDateForRange = (visitDate: string, dateRange?: { startDate?: Date | null; endDate?: Date | null }) => {
+    const days = dateRangeDaysDiff(dateRange);
+    return days === undefined ? visitDate : formatIsoDate(addDays(parseISO(visitDate), days))!;
+  };
   const visitsMocks = rangeOf(2, (index) => fromPartial<ShlinkVisit>({ date: dateForVisit(index) }));
   const getShortUrlVisitsCall = vi.fn();
   const apiClientFactory = () => fromPartial<ShlinkApiClient>({ getShortUrlVisits: getShortUrlVisitsCall });
@@ -323,7 +328,7 @@ describe('shortUrlVisitsReducer', () => {
           apiClientFactory,
         };
         const prevVisits = expectsPrevVisits
-          ? visitsMocks.map((visit, index) => ({ ...visit, date: dateForVisit(index + 1 + visitsMocks.length) }))
+          ? visitsMocks.map((visit) => ({ ...visit, date: prevVisitDateForRange(visit.date, dateRange) }))
           : undefined;
 
         getShortUrlVisitsCall.mockResolvedValue({
