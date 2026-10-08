@@ -15,6 +15,30 @@ import { countryCodes } from '../../utils/country-codes';
 import { LabelledDateInput } from '../../utils/dates/LabelledDateInput';
 import { useFeature } from '../../utils/features';
 
+const browserNames = {
+  chrome: 'Google Chrome',
+  firefox: 'Mozilla Firefox',
+  edge: 'Microsoft Edge',
+  safari: 'Safari',
+  opera: 'Opera',
+  android_browser: 'Android browser',
+} as const;
+
+const BrowserControls: FC<{ browser: string | null; onBrowserChange: (browser: string) => void }> = ({
+  browser,
+  onBrowserChange,
+}) => (
+  <LabelledSelect
+    label="Browser:"
+    value={browser ?? undefined}
+    onChange={(e) => onBrowserChange((e.target as HTMLSelectElement).value)}
+    hiddenRequired
+  >
+    {!browser && <option value="">- Select type -</option>}
+    {Object.entries(browserNames).map(([key, value]) => <option key={key} value={key}>{value}</option>)}
+  </LabelledSelect>
+);
+
 const DeviceTypeControls: FC<{
   deviceType: string | null;
   onDeviceTypeChange: (deviceType: ShlinkDeviceType) => void;
@@ -159,6 +183,7 @@ const Condition: FC<{
   const supportsGeolocationRedirectCondition = useFeature('geolocationRedirectCondition');
   const supportsAdvancedQueryConditions = useFeature('advancedQueryRedirectConditions');
   const supportsDateConditions = useFeature('dateRedirectConditions');
+  const supportsBrowserRedirectConditions = useFeature('browserRedirectConditions');
   const conditionNames = useMemo((): Partial<Record<ShlinkRedirectConditionType, string>> => {
     const conditionNames: Partial<Record<ShlinkRedirectConditionType, string>> = {
       device: 'Device type',
@@ -185,9 +210,14 @@ const Condition: FC<{
       conditionNames['after-date'] = 'After date';
     }
 
+    if (supportsBrowserRedirectConditions) {
+      conditionNames.browser = 'Browser';
+    }
+
     return conditionNames;
   }, [
     supportsAdvancedQueryConditions,
+    supportsBrowserRedirectConditions,
     supportsDateConditions,
     supportsGeolocationRedirectCondition,
     supportsIpRedirectCondition,
@@ -224,6 +254,9 @@ const Condition: FC<{
       </div>
       {condition.type === 'device' && (
         <DeviceTypeControls deviceType={condition.matchValue} onDeviceTypeChange={setConditionValue} />
+      )}
+      {condition.type === 'browser' && (
+        <BrowserControls browser={condition.matchValue} onBrowserChange={setConditionValue} />
       )}
       {condition.type === 'language' && (
         <LanguageControls language={condition.matchValue} onLanguageChange={setConditionValue} />

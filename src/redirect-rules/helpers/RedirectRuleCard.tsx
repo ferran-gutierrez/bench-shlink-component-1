@@ -60,6 +60,7 @@ export const RedirectRuleCard: FC<RedirectRuleCardProps> = (
                 key={`${condition.type}_${condIndex}`}
               >
                 {condition.type === 'device' && <>Device is {condition.matchValue}</>}
+                {condition.type === 'browser' && <>Browser is {condition.matchValue}</>}
                 {condition.type === 'language' && <>{condition.matchValue} language is accepted</>}
                 {condition.type === 'query-param' && (
                   <>Query string contains &quot;{condition.matchKey}={condition.matchValue}&quot;</>

@@ -20,6 +20,7 @@ type SetUpOptions = {
   advancedQueryRedirectConditions?: boolean;
   desktopDeviceTypes?: boolean;
   dateRedirectConditions?: boolean;
+  browserRedirectConditions?: boolean;
 };
 
 describe('<RedirectRuleModal />', () => {
@@ -31,6 +32,7 @@ describe('<RedirectRuleModal />', () => {
     advancedQueryRedirectConditions = true,
     desktopDeviceTypes = true,
     dateRedirectConditions = true,
+    browserRedirectConditions = false,
   }: SetUpOptions) => renderWithEvents(
     <TestModalWrapper
       renderModal={(args) => (
@@ -41,6 +43,7 @@ describe('<RedirectRuleModal />', () => {
             advancedQueryRedirectConditions,
             desktopDeviceTypes,
             dateRedirectConditions,
+            browserRedirectConditions,
           })}
         >
           <RedirectRuleModal {...args} onSave={onSave} initialData={initialData} />
@@ -292,6 +295,95 @@ describe('<RedirectRuleModal />', () => {
     expect(options).toHaveLength(expectedOptions.length);
     options.forEach((option, index) => {
       expect(option).toHaveTextContent(expectedOptions[index]);
+    });
+  });
+
+  it('lists Browser after other condition types when browserRedirectConditions is enabled', async () => {
+    const { user } = setUp({
+      browserRedirectConditions: true,
+      ipRedirectCondition: true,
+      geolocationRedirectCondition: true,
+      advancedQueryRedirectConditions: true,
+      dateRedirectConditions: true,
+    });
+
+    await addConditionWithType(user, 'language');
+    const options = screen.getAllByRole('option');
+
+    expect(options.at(-1)).toHaveTextContent('Browser');
+  });
+
+  it('does not list Browser when browserRedirectConditions is disabled', async () => {
+    const { user } = setUp({
+      browserRedirectConditions: false,
+      dateRedirectConditions: true,
+    });
+
+    await addConditionWithType(user, 'language');
+    const options = screen.getAllByRole('option');
+
+    options.forEach((option) => {
+      expect(option).not.toHaveTextContent('Browser');
+    });
+  });
+
+  it('shows browser select options when browser condition type is selected', async () => {
+    const { user } = setUp({ browserRedirectConditions: true });
+
+    await addConditionWithType(user, 'browser');
+    const options = screen.getByLabelText('Browser:').querySelectorAll('option');
+
+    expect(options).toHaveLength(7);
+    expect(options[0]).toHaveTextContent('- Select type -');
+    expect(options[1]).toHaveTextContent('Google Chrome');
+    expect(options[1]).toHaveValue('chrome');
+    expect(options[2]).toHaveTextContent('Mozilla Firefox');
+    expect(options[2]).toHaveValue('firefox');
+    expect(options[3]).toHaveTextContent('Microsoft Edge');
+    expect(options[3]).toHaveValue('edge');
+    expect(options[4]).toHaveTextContent('Safari');
+    expect(options[4]).toHaveValue('safari');
+    expect(options[5]).toHaveTextContent('Opera');
+    expect(options[5]).toHaveValue('opera');
+    expect(options[6]).toHaveTextContent('Android browser');
+    expect(options[6]).toHaveValue('android_browser');
+  });
+
+  it('saves browser condition with match value and no match key', async () => {
+    const initialData: ShlinkRedirectRuleData = {
+      longUrl: 'https://example.com',
+      conditions: [{ type: 'device', matchValue: 'android', matchKey: null }],
+    };
+    const { user } = setUp({ initialData, browserRedirectConditions: true });
+
+    await addConditionWithType(user, 'browser');
+    await user.selectOptions(screen.getByLabelText('Browser:'), ['firefox']);
+    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    expect(onSave).toHaveBeenCalledWith({
+      longUrl: 'https://example.com',
+      conditions: [
+        { type: 'device', matchValue: 'android', matchKey: null },
+        { type: 'browser', matchValue: 'firefox', matchKey: null },
+      ],
+    });
+  });
+
+  it('pre-selects browser when editing an existing browser condition', async () => {
+    const initialData: ShlinkRedirectRuleData = {
+      longUrl: 'https://example.com',
+      conditions: [{ type: 'browser', matchValue: 'safari', matchKey: null }],
+    };
+    const { user } = setUp({ initialData, browserRedirectConditions: true });
+
+    expect(screen.getByLabelText('Browser:')).toHaveValue('safari');
+
+    await user.selectOptions(screen.getByLabelText('Browser:'), ['edge']);
+    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    expect(onSave).toHaveBeenCalledWith({
+      longUrl: 'https://example.com',
+      conditions: [{ type: 'browser', matchValue: 'edge', matchKey: null }],
     });
   });
 });
