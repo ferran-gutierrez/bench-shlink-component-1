@@ -1,0 +1,121 @@
+{
+  "name": "@shlinkio/shlink-web-component",
+  "description": "Minimal UI to interact with Shlink on React applications",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shlinkio/shlink-web-component.git"
+  },
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./api-contract": {
+      "import": "./dist/api-contract.js",
+      "types": "./dist/api-contract.d.ts"
+    },
+    "./settings": {
+      "import": "./dist/settings.js",
+      "types": "./dist/settings.d.ts"
+    },
+    "./tailwind.preset.css": {
+      "style": "./dist/tailwind.preset.css",
+      "default": "./dist/tailwind.preset.css"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "vite build && cp ./src/tailwind.preset.css ./dist/tailwind.preset.css",
+    "test": "vitest run",
+    "test:ci": "npm run test -- --coverage",
+    "lint": "eslint dev src test *.config.{js,ts}",
+    "lint:fix": "npm run lint -- --fix",
+    "types": "tsc",
+    "dev": "vite serve --host 0.0.0.0 --port 3002",
+    "dev:sub-route": "vite serve --host 0.0.0.0 --port 3003 --base=\"/sub/route\""
+  },
+  "peerDependencies": {
+    "@fortawesome/fontawesome-svg-core": "^7.0.0",
+    "@fortawesome/free-brands-svg-icons": "^7.0.0",
+    "@fortawesome/free-regular-svg-icons": "^7.0.0",
+    "@fortawesome/free-solid-svg-icons": "^7.0.0",
+    "@fortawesome/react-fontawesome": "^3.0.0",
+    "@reduxjs/toolkit": "^2.5.1",
+    "@shlinkio/shlink-frontend-kit": "^1.4.0",
+    "@shlinkio/shlink-js-sdk": "^3.2.1",
+    "react": "^19.1",
+    "react-dom": "^19.1",
+    "react-redux": "^9.2.0",
+    "react-router": "^7.1.5"
+  },
+  "peerDependenciesMeta": {
+    "@shlinkio/shlink-js-sdk": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@formkit/drag-and-drop": "^0.5.3",
+    "@json2csv/plainjs": "^7.0.6",
+    "@shlinkio/data-manipulation": "^1.0.4",
+    "bottlejs": "^2.0.1",
+    "bowser": "^2.14.1",
+    "clsx": "^2.1.1",
+    "compare-versions": "^6.1.1",
+    "date-fns": "^4.4.0",
+    "leaflet": "^1.9.4",
+    "qr-code-styling": "^1.9.2",
+    "react-external-link": "^2.7.0",
+    "react-leaflet": "^5.0",
+    "react-swipeable": "^7.0.2",
+    "recharts": "^3.8.1"
+  },
+  "devDependencies": {
+    "@shlinkio/eslint-config-js-coding-standard": "~3.7.0",
+    "@shlinkio/shlink-js-sdk": "^3.1.0",
+    "@stylistic/eslint-plugin": "^5.7.1",
+    "@tailwindcss/vite": "^4.3.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@total-typescript/shoehorn": "^0.1.2",
+    "@total-typescript/ts-reset": "^0.6.1",
+    "@types/leaflet": "^1.9.21",
+    "@types/node": "^25.9.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "@vitest/browser": "^4.1.8",
+    "@vitest/browser-playwright": "^4.1.2",
+    "@vitest/coverage-v8": "^4.1.2",
+    "axe-core": "^4.12.1",
+    "eslint": "^9.39.2",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-compiler": "^19.0.0-beta-714736e-20250131",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-simple-import-sort": "^12.1.1",
+    "history": "^5.3.0",
+    "playwright": "^1.58.2",
+    "tailwindcss": "^4.1.5",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.58.0",
+    "vite": "^8.0.16",
+    "vite-plugin-dts": "^5.0.2",
+    "vitest": "^4.0.3"
+  },
+  "browserslist": [
+    ">0.2%",
+    "not dead",
+    "not ie <= 11",
+    "not op_mini all"
+  ]
+}
