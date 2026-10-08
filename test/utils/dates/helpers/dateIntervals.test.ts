@@ -238,8 +238,9 @@ describe('bench-shlink-component-1-20261008-cxer: local timezone date intervals'
     vi.setSystemTime(new Date(FROZEN_INSTANT_JUNE_LA));
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.useRealTimers();
+    await pinBrowserTimezone('UTC');
   });
 
   describe('REQ-1', () => {
@@ -316,33 +317,32 @@ describe('bench-shlink-component-1-20261008-cxer: UTC offset zero regression', (
     vi.setSystemTime(new Date(FROZEN_INSTANT));
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.useRealTimers();
+    await pinBrowserTimezone('UTC');
   });
 
   describe('REQ-9', () => {
     it('preset intervals keep legacy UTC-midnight numeric boundaries when local offset is zero', () => {
       const legacyToday = utcMidnightDayRangeAnchoredToNow();
+      const legacyEnd = legacyToday.endDate.toISOString();
+      const legacyStartDaysAgo = (days: number) =>
+        new Date(legacyToday.startDate.getTime() - days * DAY_IN_MS).toISOString();
 
-      expectIsoRange(
-        intervalToDateRange('today'),
-        legacyToday.startDate.toISOString(),
-        legacyToday.endDate.toISOString(),
-      );
+      expectIsoRange(intervalToDateRange('today'), legacyToday.startDate.toISOString(), legacyEnd);
 
-      const legacyYesterdayStart = new Date(legacyToday.startDate.getTime() - DAY_IN_MS);
-      const legacyYesterdayEnd = new Date(legacyToday.startDate.getTime() - 1);
       expectIsoRange(
         intervalToDateRange('yesterday'),
-        legacyYesterdayStart.toISOString(),
-        legacyYesterdayEnd.toISOString(),
+        legacyStartDaysAgo(1),
+        new Date(legacyToday.startDate.getTime() - 1).toISOString(),
       );
 
-      expectIsoRange(
-        intervalToDateRange('last7Days'),
-        new Date(legacyToday.startDate.getTime() - 7 * DAY_IN_MS).toISOString(),
-        legacyToday.endDate.toISOString(),
-      );
+      expectIsoRange(intervalToDateRange('last7Days'), legacyStartDaysAgo(7), legacyEnd);
+
+      expectIsoRange(intervalToDateRange('last30Days'), legacyStartDaysAgo(30), legacyEnd);
+      expectIsoRange(intervalToDateRange('last90Days'), legacyStartDaysAgo(90), legacyEnd);
+      expectIsoRange(intervalToDateRange('last180Days'), legacyStartDaysAgo(180), legacyEnd);
+      expectIsoRange(intervalToDateRange('last365Days'), legacyStartDaysAgo(365), legacyEnd);
     });
   });
 });
@@ -357,8 +357,9 @@ describe('bench-shlink-component-1-20261008-cxer: visit timestamp vs UTC-midnigh
     vi.setSystemTime(new Date(FROZEN_INSTANT));
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.useRealTimers();
+    await pinBrowserTimezone('UTC');
   });
 
   describe('REQ-10', () => {
